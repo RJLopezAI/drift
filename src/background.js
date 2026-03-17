@@ -7,6 +7,27 @@
 import * as THREE from 'three';
 import { scene } from './scene.js';
 
+/** Generate a radial glow sprite texture for professional star rendering */
+function createStarGlowTexture() {
+  const size = 64;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const grad = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
+  grad.addColorStop(0, 'rgba(255, 255, 255, 1.0)');
+  grad.addColorStop(0.1, 'rgba(255, 255, 255, 0.8)');
+  grad.addColorStop(0.3, 'rgba(200, 210, 255, 0.3)');
+  grad.addColorStop(0.6, 'rgba(150, 170, 255, 0.05)');
+  grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, size, size);
+  const tex = new THREE.CanvasTexture(canvas);
+  return tex;
+}
+
+const starGlowTex = createStarGlowTexture();
+
 /** Stored references for animation */
 let starFieldMat = null;
 let milkyWayMat = null;
@@ -42,12 +63,13 @@ export function createBackgroundStars() {
 
   starFieldMat = new THREE.PointsMaterial({
     vertexColors: true,
-    size: 0.8,
+    size: 1.2,
     sizeAttenuation: true,
     transparent: true,
-    opacity: 0.7,
+    opacity: 0.85,
     blending: THREE.AdditiveBlending,
-    depthWrite: false
+    depthWrite: false,
+    map: starGlowTex  // Radial glow sprite — no more flat squares
   });
 
   const points = new THREE.Points(geo, starFieldMat);
@@ -104,12 +126,13 @@ export function createMilkyWay() {
 
   milkyWayMat = new THREE.PointsMaterial({
     vertexColors: true,
-    size: 0.6,
+    size: 0.9,
     sizeAttenuation: true,
     transparent: true,
-    opacity: 0.15,
+    opacity: 0.2,
     blending: THREE.AdditiveBlending,
-    depthWrite: false
+    depthWrite: false,
+    map: starGlowTex  // Same glow sprite for uniform quality
   });
 
   const points = new THREE.Points(geo, milkyWayMat);

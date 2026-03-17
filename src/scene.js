@@ -1,9 +1,13 @@
 // ══════════════════════════════════════════════════════
-// DRIFT — Three.js Scene Setup
+// DRIFT — Three.js Scene Setup (Professional Grade)
+// EffectComposer + UnrealBloomPass for real HDR bloom
 // Camera, renderer, controls, resize, render loop
 // ══════════════════════════════════════════════════════
 
 import * as THREE from 'three';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 
 /** @type {THREE.Scene} */
 export let scene;
@@ -11,6 +15,8 @@ export let scene;
 export let camera;
 /** @type {THREE.WebGLRenderer} */
 export let renderer;
+/** @type {EffectComposer} */
+let composer;
 
 // Camera state
 let theta = 0;
@@ -33,19 +39,19 @@ const TWEEN_DURATION = 1.5;
 const updateCallbacks = [];
 
 /**
- * Initialize the Three.js scene, camera, renderer.
+ * Initialize the Three.js scene, camera, renderer + bloom pipeline.
  * @param {HTMLCanvasElement} canvas
  */
 export function initScene(canvas) {
   // Scene
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x060610);
+  scene.background = new THREE.Color(0x040410);  // slightly deeper void for contrast
 
   // Camera — wider FOV for immersive 3D depth
   camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 600);
   updateCameraPosition();
 
-  // Renderer — full resolution, HDR tone mapping
+  // Renderer — full native resolution, high-performance
   renderer = new THREE.WebGLRenderer({
     canvas,
     antialias: true,
@@ -54,10 +60,23 @@ export function initScene(canvas) {
     logarithmicDepthBuffer: true
   });
   renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setPixelRatio(window.devicePixelRatio);  // Full native resolution
+  renderer.setPixelRatio(window.devicePixelRatio);  // Full native (NVIDIA can handle it)
   renderer.sortObjects = true;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.3;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+  // ── Post-processing: UnrealBloom ──
+  // This is what makes it professional — bright objects bleed light
+  const renderPass = new RenderPass(scene, camera);
+  const bloomPass = new UnrealBloomPass(
+    new THREE.Vector2(window.innerWidth, window.innerHeight),
+    0.8,    // strength — how much glow bleeds out
+    0.4,    // radius — how far the glow spreads
+    0.7     // threshold — brightness cutoff (lower = more objects bloom)
+  );
+
+  composer = new EffectComposer(renderer);
+  composer.addPass(renderPass);
+  composer.addPass(bloomPass);
 
   // Events
   window.addEventListener('resize', onResize);
@@ -85,6 +104,7 @@ function onResize() {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
+  composer.setSize(window.innerWidth, window.innerHeight);
 }
 
 // ── Mouse Controls ──
@@ -185,7 +205,7 @@ function easeOutCubic(t) {
 }
 
 /**
- * Start the render loop.
+ * Start the render loop — uses EffectComposer for bloom.
  */
 export function startLoop() {
   const clock = new THREE.Clock();
@@ -220,7 +240,8 @@ export function startLoop() {
       try { fn(dt, elapsed); } catch (e) { console.error('Update error:', e); }
     }
 
-    renderer.render(scene, camera);
+    // Render through bloom composer (not raw renderer)
+    composer.render();
   }
 
   animate();
