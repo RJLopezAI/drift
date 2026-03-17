@@ -1,34 +1,38 @@
 // ══════════════════════════════════════════════════════
-// DRIFT — Galaxy Generator
+// DRIFT — Galaxy Generator v2 (Mountaintop Visuals)
 // Each repo is a galaxy: spiral or elliptical.
 // Commits are stars within each galaxy.
+// Constellation lines are subtle gold arcs.
 // ══════════════════════════════════════════════════════
 
 import * as THREE from 'three';
 import { scene } from './scene.js';
 
-// Language → color mapping
+// Language → color mapping (vibrant, saturated)
 const LANG_COLORS = {
   JavaScript:  new THREE.Color(0xf0db4f),
-  TypeScript:  new THREE.Color(0x3178c6),
-  Python:      new THREE.Color(0x306998),
-  Rust:        new THREE.Color(0xdea584),
-  Go:          new THREE.Color(0x00add8),
-  Java:        new THREE.Color(0xb07219),
+  TypeScript:  new THREE.Color(0x4a9eff),
+  Python:      new THREE.Color(0x4b8bbe),
+  Rust:        new THREE.Color(0xff6e40),
+  Go:          new THREE.Color(0x00d4aa),
+  Java:        new THREE.Color(0xe76f00),
   'C++':       new THREE.Color(0xf34b7d),
-  C:           new THREE.Color(0x555555),
-  'C#':        new THREE.Color(0x178600),
-  Ruby:        new THREE.Color(0xcc342d),
-  PHP:         new THREE.Color(0x4F5D95),
-  Swift:       new THREE.Color(0xfa7343),
-  Kotlin:      new THREE.Color(0xa97bff),
+  C:           new THREE.Color(0x6295cb),   // more visible blue instead of gray
+  'C#':        new THREE.Color(0x68d666),
+  Ruby:        new THREE.Color(0xff3333),
+  PHP:         new THREE.Color(0x7a86b8),
+  Swift:       new THREE.Color(0xff6b3d),
+  Kotlin:      new THREE.Color(0xb48eff),
   Solidity:    new THREE.Color(0x8a5cf5),
-  HTML:        new THREE.Color(0xe34c26),
-  CSS:         new THREE.Color(0x563d7c),
+  HTML:        new THREE.Color(0xff6347),
+  CSS:         new THREE.Color(0x7b55d4),
   Shell:       new THREE.Color(0x89e051),
-  Dart:        new THREE.Color(0x00b4ab),
+  Dart:        new THREE.Color(0x00c4b0),
   Vue:         new THREE.Color(0x41b883),
   Svelte:      new THREE.Color(0xff3e00),
+  Makefile:    new THREE.Color(0x427819),
+  Perl:        new THREE.Color(0x0298c3),
+  Assembly:    new THREE.Color(0x6E4C13),
   default:     new THREE.Color(0x8a8aa0)
 };
 
@@ -42,18 +46,20 @@ function classifyCommit(message) {
   if (/^(test|spec|coverage)/i.test(m)) return 'test';
   if (/^(ci|build|deploy|release|bump|version)/i.test(m)) return 'ci';
   if (/^(style|lint|format)/i.test(m)) return 'style';
+  if (/^merge/i.test(m)) return 'merge';
   return 'other';
 }
 
 const COMMIT_COLORS = {
-  feature: new THREE.Color(0x4a8eff),  // blue
-  fix:     new THREE.Color(0xe8a84c),  // amber
+  feature: new THREE.Color(0x4a9eff),  // bright blue
+  fix:     new THREE.Color(0xffaa33),  // warm amber
   refactor:new THREE.Color(0x4acfcf),  // teal
-  docs:    new THREE.Color(0xaaaacc),  // silver
+  docs:    new THREE.Color(0xbbbbdd),  // silver
   test:    new THREE.Color(0x5ce87a),  // green
-  ci:      new THREE.Color(0x8a5cf5),  // purple
-  style:   new THREE.Color(0xe85ca8),  // pink
-  other:   new THREE.Color(0x8a8aa0)   // muted
+  ci:      new THREE.Color(0xa06ef5),  // purple
+  style:   new THREE.Color(0xff6ea8),  // pink
+  merge:   new THREE.Color(0xc9b06b),  // gold
+  other:   new THREE.Color(0x99aacc)   // blue-gray (brighter)
 };
 
 /** All visible galaxy groups for raycasting */
@@ -64,15 +70,15 @@ export const galaxyMeta = new Map();
 
 /**
  * Generate all galaxies from repo + commit data.
- * @param {object[]} repos
- * @param {Map<string, object[]>} commitMap
- * @param {object} stats
  */
 export function createGalaxies(repos, commitMap, stats) {
-  // Place galaxies on a Fibonacci sphere
   const n = repos.length;
   const SPHERE_R = 50;
   const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+
+  // Find max commits for relative sizing
+  let maxCommits = 1;
+  for (const [, c] of commitMap) maxCommits = Math.max(maxCommits, c.length);
 
   for (let i = 0; i < n; i++) {
     const repo = repos[i];
@@ -88,10 +94,9 @@ export function createGalaxies(repos, commitMap, stats) {
       radiusAtY * Math.sin(thetaF) * SPHERE_R
     );
 
-    const group = createSingleGalaxy(repo, commits, pos);
+    const group = createSingleGalaxy(repo, commits, pos, maxCommits);
     galaxyGroups.push(group);
 
-    // Store metadata
     galaxyMeta.set(repo.name, {
       name: repo.name,
       description: repo.description || 'No description',
@@ -108,37 +113,41 @@ export function createGalaxies(repos, commitMap, stats) {
 
 /**
  * Create a single galaxy (repo) at a position.
+ * v2: Much softer core, vivid language tint, larger commit stars
  */
-function createSingleGalaxy(repo, commits, position) {
+function createSingleGalaxy(repo, commits, position, maxCommits) {
   const group = new THREE.Group();
   group.position.copy(position);
   group.userData = { repoName: repo.name };
 
   const langColor = LANG_COLORS[repo.language] || LANG_COLORS.default;
-  const galaxySize = Math.max(2, Math.min(8, Math.log2(commits.length + 1) * 1.5));
-  const isSpiral = commits.length > 10;
+  // Scale galaxy size relative to the largest repo (1.5 to 6 range)
+  const relSize = commits.length / maxCommits;
+  const galaxySize = 1.5 + relSize * 4.5;
+  const isSpiral = commits.length > 15;
 
-  // ── Galaxy core glow ──
-  const coreGeo = new THREE.SphereGeometry(galaxySize * 0.3, 16, 16);
+  // ── Galaxy core glow (MUCH softer — smaller, more transparent) ──
+  const coreGeo = new THREE.SphereGeometry(galaxySize * 0.12, 16, 16);
   const coreMat = new THREE.MeshBasicMaterial({
-    color: langColor,
+    color: langColor.clone().lerp(new THREE.Color(0xffffff), 0.3),
     transparent: true,
-    opacity: 0.6,
+    opacity: 0.25,
     blending: THREE.AdditiveBlending,
     depthWrite: false
   });
   const core = new THREE.Mesh(coreGeo, coreMat);
   group.add(core);
 
-  // ── Halo sprite ──
+  // ── Halo sprite (subtler, more colorful) ──
   const haloCanvas = document.createElement('canvas');
   haloCanvas.width = 128;
   haloCanvas.height = 128;
   const hctx = haloCanvas.getContext('2d');
   const grad = hctx.createRadialGradient(64, 64, 0, 64, 64, 64);
   const c = langColor;
-  grad.addColorStop(0, `rgba(${Math.round(c.r*255)},${Math.round(c.g*255)},${Math.round(c.b*255)},0.4)`);
-  grad.addColorStop(0.3, `rgba(${Math.round(c.r*255)},${Math.round(c.g*255)},${Math.round(c.b*255)},0.15)`);
+  grad.addColorStop(0, `rgba(${Math.round(c.r*255)},${Math.round(c.g*255)},${Math.round(c.b*255)},0.2)`);
+  grad.addColorStop(0.2, `rgba(${Math.round(c.r*255)},${Math.round(c.g*255)},${Math.round(c.b*255)},0.08)`);
+  grad.addColorStop(0.5, `rgba(${Math.round(c.r*255)},${Math.round(c.g*255)},${Math.round(c.b*255)},0.02)`);
   grad.addColorStop(1, 'rgba(0,0,0,0)');
   hctx.fillStyle = grad;
   hctx.fillRect(0, 0, 128, 128);
@@ -151,16 +160,14 @@ function createSingleGalaxy(repo, commits, position) {
     depthWrite: false
   });
   const halo = new THREE.Sprite(haloMat);
-  halo.scale.set(galaxySize * 3, galaxySize * 3, 1);
+  halo.scale.set(galaxySize * 2.5, galaxySize * 2.5, 1);
   group.add(halo);
 
-  // ── Commit stars ──
+  // ── Commit stars (BIGGER, BRIGHTER, more vivid) ──
   if (commits.length > 0) {
     const starCount = commits.length;
     const positions = new Float32Array(starCount * 3);
     const colors = new Float32Array(starCount * 3);
-    const sizes = new Float32Array(starCount);
-
     const now = Date.now();
 
     for (let j = 0; j < starCount; j++) {
@@ -173,22 +180,23 @@ function createSingleGalaxy(repo, commits, position) {
 
       let x, y, z;
       if (isSpiral) {
-        // Spiral arm positioning
+        // 2-arm spiral — wider spread, more galaxy-like
         const arm = j % 2;
         const t = j / starCount;
-        const armAngle = arm * Math.PI + t * Math.PI * 3;
-        const armR = t * galaxySize * 1.2;
-        const scatter = (Math.random() - 0.5) * galaxySize * 0.3;
+        const armAngle = arm * Math.PI + t * Math.PI * 4; // tighter spiral
+        const armR = (0.15 + t * 0.85) * galaxySize * 1.6;
+        const scatter = (Math.random() - 0.5) * galaxySize * 0.4;
+        const vScatter = (Math.random() - 0.5) * galaxySize * 0.08;
         x = armR * Math.cos(armAngle) + scatter;
-        y = (Math.random() - 0.5) * galaxySize * 0.15;
+        y = vScatter;
         z = armR * Math.sin(armAngle) + scatter;
       } else {
-        // Elliptical blob
-        const r = Math.random() * galaxySize * 0.8;
+        // Elliptical — flattened sphere
+        const r = Math.pow(Math.random(), 0.5) * galaxySize * 1.2;
         const theta = Math.random() * Math.PI * 2;
         const phi = Math.acos(2 * Math.random() - 1);
         x = r * Math.sin(phi) * Math.cos(theta);
-        y = r * Math.cos(phi) * 0.3;
+        y = r * Math.cos(phi) * 0.2;
         z = r * Math.sin(phi) * Math.sin(theta);
       }
 
@@ -196,29 +204,32 @@ function createSingleGalaxy(repo, commits, position) {
       positions[j * 3 + 1] = y;
       positions[j * 3 + 2] = z;
 
-      // Redshift aging: older commits warm-shift
+      // Blend commit type color with language color for unique galaxy tint
+      const blended = commitColor.clone().lerp(langColor, 0.2);
+      // Redshift aging
       const ageFactor = Math.min(1, dayAge / 180);
-      const aged = commitColor.clone().lerp(new THREE.Color(0xe8a84c), ageFactor * 0.15);
+      const aged = blended.lerp(new THREE.Color(0xe8a84c), ageFactor * 0.12);
+      // Boost brightness for fresh commits
+      if (dayAge < 7) {
+        aged.lerp(new THREE.Color(0xffffff), 0.3);
+      } else if (dayAge < 30) {
+        aged.lerp(new THREE.Color(0xffffff), 0.1);
+      }
       colors[j * 3] = aged.r;
       colors[j * 3 + 1] = aged.g;
       colors[j * 3 + 2] = aged.b;
-
-      // Fresh commits are bigger, corona effect
-      const freshness = dayAge < 7 ? 1.5 : dayAge < 30 ? 1.2 : 1.0;
-      sizes[j] = (0.15 + Math.random() * 0.25) * freshness;
     }
 
     const starGeo = new THREE.BufferGeometry();
     starGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     starGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-    starGeo.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
 
     const starMat = new THREE.PointsMaterial({
       vertexColors: true,
-      size: 0.4,
+      size: 0.7,     // much bigger stars
       sizeAttenuation: true,
       transparent: true,
-      opacity: 0.85,
+      opacity: 0.95,
       blending: THREE.AdditiveBlending,
       depthWrite: false
     });
@@ -227,20 +238,46 @@ function createSingleGalaxy(repo, commits, position) {
     group.add(stars);
   }
 
+  // ── Dust cloud (faint particles around the galaxy for depth) ──
+  if (commits.length > 5) {
+    const dustCount = Math.min(80, commits.length);
+    const dustPos = new Float32Array(dustCount * 3);
+    for (let d = 0; d < dustCount; d++) {
+      const r = (0.5 + Math.random()) * galaxySize * 1.3;
+      const a = Math.random() * Math.PI * 2;
+      dustPos[d * 3] = r * Math.cos(a) + (Math.random() - 0.5) * galaxySize * 0.4;
+      dustPos[d * 3 + 1] = (Math.random() - 0.5) * galaxySize * 0.12;
+      dustPos[d * 3 + 2] = r * Math.sin(a) + (Math.random() - 0.5) * galaxySize * 0.4;
+    }
+    const dustGeo = new THREE.BufferGeometry();
+    dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
+    const dustMat = new THREE.PointsMaterial({
+      color: langColor.clone().lerp(new THREE.Color(0xffffff), 0.5),
+      size: 0.2,
+      sizeAttenuation: true,
+      transparent: true,
+      opacity: 0.15,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    group.add(new THREE.Points(dustGeo, dustMat));
+  }
+
   scene.add(group);
   return group;
 }
 
 /**
- * Create streak constellation lines connecting daily commits.
- * @param {object} stats
+ * Create streak constellation lines.
+ * v2: Only 5+ day streaks, gold color, much subtler opacity,
+ *     curves instead of straight lines
  */
 export function createConstellations(stats) {
   const dailyCommits = stats.dailyCommits;
   const dates = Object.keys(dailyCommits).sort();
   if (dates.length < 2) return;
 
-  // Find consecutive day streaks
+  // Find consecutive day streaks — minimum 5 days now
   const streaks = [];
   let current = [dates[0]];
 
@@ -251,16 +288,18 @@ export function createConstellations(stats) {
     if (gap <= 1) {
       current.push(dates[i]);
     } else {
-      if (current.length >= 3) streaks.push([...current]);
+      if (current.length >= 5) streaks.push([...current]);
       current = [dates[i]];
     }
   }
-  if (current.length >= 3) streaks.push(current);
+  if (current.length >= 5) streaks.push(current);
 
-  // Draw lines for each streak
-  for (const streak of streaks) {
-    const points = streak.map((d, i) => {
-      // Map date to a position on the sphere
+  // Only draw top 6 longest streaks to avoid clutter
+  streaks.sort((a, b) => b.length - a.length);
+  const topStreaks = streaks.slice(0, 6);
+
+  for (const streak of topStreaks) {
+    const points = streak.map((d) => {
       const dayOfYear = Math.floor((new Date(d) - new Date(d.slice(0, 4) + '-01-01')) / 86400000);
       const goldenAngle = Math.PI * (3 - Math.sqrt(5));
       const y = 1 - (dayOfYear / 365) * 2;
@@ -273,17 +312,41 @@ export function createConstellations(stats) {
       );
     });
 
-    const geo = new THREE.BufferGeometry().setFromPoints(points);
-    const intensity = Math.min(1, streak.length / 14);
+    // Smooth curve through the points
+    const curve = new THREE.CatmullRomCurve3(points, false, 'centripetal', 0.5);
+    const curvePoints = curve.getPoints(streak.length * 4);
+    const geo = new THREE.BufferGeometry().setFromPoints(curvePoints);
+
+    const intensity = Math.min(1, streak.length / 20);
     const mat = new THREE.LineBasicMaterial({
       color: new THREE.Color(0xc9b06b),
       transparent: true,
-      opacity: 0.12 + intensity * 0.2,
+      opacity: 0.06 + intensity * 0.12,  // much subtler
       blending: THREE.AdditiveBlending,
       depthWrite: false
     });
 
     const line = new THREE.Line(geo, mat);
     scene.add(line);
+
+    // Add small gold dots at each streak node
+    const nodePositions = new Float32Array(points.length * 3);
+    points.forEach((p, i) => {
+      nodePositions[i * 3] = p.x;
+      nodePositions[i * 3 + 1] = p.y;
+      nodePositions[i * 3 + 2] = p.z;
+    });
+    const nodeGeo = new THREE.BufferGeometry();
+    nodeGeo.setAttribute('position', new THREE.BufferAttribute(nodePositions, 3));
+    const nodeMat = new THREE.PointsMaterial({
+      color: 0xc9b06b,
+      size: 0.5,
+      sizeAttenuation: true,
+      transparent: true,
+      opacity: 0.3 + intensity * 0.3,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    scene.add(new THREE.Points(nodeGeo, nodeMat));
   }
 }
