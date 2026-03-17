@@ -17,7 +17,7 @@ let nebulaMat = null;
  * ~3000 random stars at various distances.
  */
 export function createBackgroundStars() {
-  const count = 3000;
+  const count = 6000;  // doubled for richer starfield
   const positions = new Float32Array(count * 3);
   const colors = new Float32Array(count * 3);
 
@@ -60,7 +60,7 @@ export function createBackgroundStars() {
  * Create the Milky Way band — a great circle of particles.
  */
 export function createMilkyWay() {
-  const count = 4000;
+  const count = 8000;  // doubled for denser galactic band
   const positions = new Float32Array(count * 3);
   const colors = new Float32Array(count * 3);
 

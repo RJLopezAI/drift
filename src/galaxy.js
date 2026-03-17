@@ -130,6 +130,80 @@ export function createGalaxies(repos, commitMap, stats) {
   }
 }
 
+/** Material references for gravitational center animation */
+let gravCoreMat = null;
+let gravHaloMat = null;
+
+/**
+ * Create the gravitational center anchor — a soft, pulsing radial glow
+ * at the origin. Makes even sparse universes feel like a system that exists.
+ * "Something is here, waiting."
+ */
+export function createGravitationalCenter() {
+  // Inner core: warm, soft sphere
+  const coreGeo = new THREE.SphereGeometry(1.5, 24, 24);
+  gravCoreMat = new THREE.MeshBasicMaterial({
+    color: new THREE.Color(0xffb347),
+    transparent: true,
+    opacity: 0.08,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false
+  });
+  const core = new THREE.Mesh(coreGeo, gravCoreMat);
+  scene.add(core);
+
+  // Outer halo: larger, dimmer
+  const haloGeo = new THREE.SphereGeometry(5, 24, 24);
+  gravHaloMat = new THREE.MeshBasicMaterial({
+    color: new THREE.Color(0x1a0a3e),
+    transparent: true,
+    opacity: 0.04,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false
+  });
+  const halo = new THREE.Mesh(haloGeo, gravHaloMat);
+  scene.add(halo);
+
+  // Radial dust ring — faint particles orbiting the origin
+  const ringCount = 200;
+  const ringPos = new Float32Array(ringCount * 3);
+  for (let i = 0; i < ringCount; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const r = 3 + Math.random() * 8;
+    ringPos[i * 3] = r * Math.cos(a);
+    ringPos[i * 3 + 1] = (Math.random() - 0.5) * 2;
+    ringPos[i * 3 + 2] = r * Math.sin(a);
+  }
+  const ringGeo = new THREE.BufferGeometry();
+  ringGeo.setAttribute('position', new THREE.BufferAttribute(ringPos, 3));
+  const ringMat = new THREE.PointsMaterial({
+    color: 0xffb347,
+    size: 0.3,
+    sizeAttenuation: true,
+    transparent: true,
+    opacity: 0.12,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false
+  });
+  const ring = new THREE.Points(ringGeo, ringMat);
+  scene.add(ring);
+}
+
+/**
+ * Animate the gravitational center glow.
+ * Called from the render loop.
+ */
+export function updateGravitationalCenter(elapsed) {
+  if (gravCoreMat) {
+    const pulse = 0.5 + 0.5 * Math.sin(elapsed * 0.8);
+    gravCoreMat.opacity = 0.05 + pulse * 0.06;
+  }
+  if (gravHaloMat) {
+    const pulse = 0.5 + 0.5 * Math.sin(elapsed * 0.5 + 1.0);
+    gravHaloMat.opacity = 0.02 + pulse * 0.03;
+  }
+}
+
 /**
  * Create a single galaxy (repo) at a position.
  * v3: Sparse amplification — fewer commits = bigger per-star impact

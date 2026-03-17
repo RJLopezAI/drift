@@ -41,20 +41,23 @@ export function initScene(canvas) {
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x060610);
 
-  // Camera
-  camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 500);
+  // Camera — wider FOV for immersive 3D depth
+  camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 600);
   updateCameraPosition();
 
-  // Renderer
+  // Renderer — full resolution, HDR tone mapping
   renderer = new THREE.WebGLRenderer({
     canvas,
     antialias: true,
     alpha: false,
-    powerPreference: 'high-performance'
+    powerPreference: 'high-performance',
+    logarithmicDepthBuffer: true
   });
   renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setPixelRatio(window.devicePixelRatio);  // Full native resolution
   renderer.sortObjects = true;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.3;
 
   // Events
   window.addEventListener('resize', onResize);

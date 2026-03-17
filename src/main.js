@@ -6,7 +6,7 @@
 import { fetchUser, fetchRepos, fetchAllCommits, computeStats } from './github.js';
 import { initScene, startLoop, onUpdate, flyTo, resetCamera, getRaycaster, scene, camera } from './scene.js';
 import { createBackgroundStars, createMilkyWay, createNebula, updateAmbientBreathing } from './background.js';
-import { createGalaxies, createConstellations, updateConstellations, galaxyGroups, galaxyMeta, setHoveredGalaxy, getGalaxyRotationSpeed } from './galaxy.js';
+import { createGalaxies, createConstellations, updateConstellations, galaxyGroups, galaxyMeta, setHoveredGalaxy, getGalaxyRotationSpeed, createGravitationalCenter, updateGravitationalCenter } from './galaxy.js';
 import { renderShareCard, copyShareCard, downloadShareCard } from './share.js';
 import * as THREE from 'three';
 
@@ -90,8 +90,9 @@ async function launch() {
     currentStats = stats;
     setProgress(92, 'Building galaxies...');
 
-    // 5. Create Milky Way (adds atmosphere before galaxies appear)
+    // 5. Create Milky Way + gravitational center (adds atmosphere before galaxies appear)
     createMilkyWay();
+    createGravitationalCenter();
 
     // 6. Create galaxies
     createGalaxies(repos, commitMap, stats);
@@ -288,17 +289,26 @@ onUpdate((dt, elapsed) => {
   updateConstellations(dt, elapsed);
   // Global ambient breathing (never dead)
   updateAmbientBreathing(elapsed);
+  // Gravitational center pulse
+  updateGravitationalCenter(elapsed);
 });
 
 // ── Emotional State System ──
-// Maps repo activity to emotional labels instead of raw dates
+// Maps repo activity to emotional labels — a full language
 function getEmotionalState(lastPush, commitCount) {
   if (!lastPush) return { label: 'unknown', class: 'dormant' };
   const days = Math.floor((Date.now() - new Date(lastPush).getTime()) / 86400000);
+
+  // Compound states: activity + recency
+  if (days <= 1 && commitCount > 20) return { label: '🔥 exploding', class: 'alive' };
   if (days <= 1) return { label: '⚡ firing', class: 'alive' };
+  if (days <= 7 && commitCount > 20) return { label: '⚡ surging', class: 'alive' };
   if (days <= 7) return { label: '✨ active', class: 'active' };
   if (days <= 30) return { label: 'quiet', class: 'quiet' };
+  if (days <= 90 && commitCount < 5) return { label: '🌱 emerging', class: 'active' };
   if (days <= 90) return { label: 'resting', class: 'quiet' };
+  if (days <= 365 && commitCount < 3) return { label: '🌱 emerging', class: 'active' };
   if (days <= 365) return { label: 'dormant', class: 'dormant' };
+  if (commitCount > 50) return { label: 'archived', class: 'dormant' };
   return { label: 'deep sleep', class: 'dormant' };
 }
