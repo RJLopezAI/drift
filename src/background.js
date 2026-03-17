@@ -1,0 +1,143 @@
+// ══════════════════════════════════════════════════════
+// DRIFT — Background Renderer
+// Nebula, Milky Way band, star field
+// Ported from Constellation Journal's proven pipeline
+// ══════════════════════════════════════════════════════
+
+import * as THREE from 'three';
+import { scene } from './scene.js';
+
+/**
+ * Create the background star field.
+ * ~3000 random stars at various distances.
+ */
+export function createBackgroundStars() {
+  const count = 3000;
+  const positions = new Float32Array(count * 3);
+  const colors = new Float32Array(count * 3);
+  const sizes = new Float32Array(count);
+
+  for (let i = 0; i < count; i++) {
+    // Random position on a spherical shell
+    const r = 100 + Math.random() * 80;
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.acos(2 * Math.random() - 1);
+    positions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+    positions[i * 3 + 1] = r * Math.cos(phi);
+    positions[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
+
+    // Slightly blue-white tints
+    const warmth = Math.random();
+    colors[i * 3] = 0.6 + warmth * 0.35;
+    colors[i * 3 + 1] = 0.6 + warmth * 0.3;
+    colors[i * 3 + 2] = 0.7 + warmth * 0.3;
+
+    sizes[i] = 0.3 + Math.random() * 1.2;
+  }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  geo.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+
+  const mat = new THREE.PointsMaterial({
+    vertexColors: true,
+    size: 0.8,
+    sizeAttenuation: true,
+    transparent: true,
+    opacity: 0.7,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false
+  });
+
+  const points = new THREE.Points(geo, mat);
+  points.renderOrder = -3;
+  scene.add(points);
+  return points;
+}
+
+/**
+ * Create the Milky Way band — a great circle of particles.
+ */
+export function createMilkyWay() {
+  const count = 4000;
+  const positions = new Float32Array(count * 3);
+  const colors = new Float32Array(count * 3);
+
+  // Galactic plane tilt
+  const tilt = 63 * Math.PI / 180;
+  const rot = 123 * Math.PI / 180;
+
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const r = 95 + Math.random() * 10;
+    const spread = (Math.random() - 0.5) * 20;
+    const vSpread = (Math.random() - 0.5) * 12;
+
+    let x = r * Math.cos(angle) + spread;
+    let y = vSpread;
+    let z = r * Math.sin(angle) + spread;
+
+    // Rotate to galactic plane
+    const y2 = y * Math.cos(tilt) - z * Math.sin(tilt);
+    const z2 = y * Math.sin(tilt) + z * Math.cos(tilt);
+    const x2 = x * Math.cos(rot) - z2 * Math.sin(rot);
+    const z3 = x * Math.sin(rot) + z2 * Math.cos(rot);
+
+    positions[i * 3] = x2;
+    positions[i * 3 + 1] = y2;
+    positions[i * 3 + 2] = z3;
+
+    const isCore = Math.abs(spread) < 6;
+    if (isCore) {
+      colors[i * 3] = 0.75 + Math.random() * 0.25;
+      colors[i * 3 + 1] = 0.70 + Math.random() * 0.25;
+      colors[i * 3 + 2] = 0.80 + Math.random() * 0.2;
+    } else {
+      colors[i * 3] = 0.55 + Math.random() * 0.25;
+      colors[i * 3 + 1] = 0.50 + Math.random() * 0.2;
+      colors[i * 3 + 2] = 0.65 + Math.random() * 0.3;
+    }
+  }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+  const mat = new THREE.PointsMaterial({
+    vertexColors: true,
+    size: 0.6,
+    sizeAttenuation: true,
+    transparent: true,
+    opacity: 0.15,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false
+  });
+
+  const points = new THREE.Points(geo, mat);
+  points.renderOrder = -1;
+  scene.add(points);
+  return points;
+}
+
+/**
+ * Create a subtle nebula fog via a BackSide sphere with color wash.
+ */
+export function createNebula() {
+  const geo = new THREE.SphereGeometry(130, 32, 32);
+
+  // Simple color-tinted material since we can't use custom shaders easily in vanilla
+  const mat = new THREE.MeshBasicMaterial({
+    color: new THREE.Color(0x1a0a3e),
+    side: THREE.BackSide,
+    transparent: true,
+    opacity: 0.08,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false
+  });
+
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.renderOrder = -2;
+  scene.add(mesh);
+  return mesh;
+}
