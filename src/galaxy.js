@@ -428,23 +428,23 @@ export function createConstellations(stats) {
     const resolution = streak.length * 8;
     const curvePoints = curve.getPoints(resolution);
 
-    // ── 1. BASE LINE: hot amber-gold (NOT olive #d4af37) ──
+    // ── 1. BASE LINE: electric gold ──
     const lineGeo = new THREE.BufferGeometry().setFromPoints(curvePoints);
     const lineMat = new THREE.LineBasicMaterial({
-      color: new THREE.Color(0xffb347),
+      color: new THREE.Color(0xffc850),
       transparent: true,
-      opacity: 0.25 + intensity * 0.25,
+      opacity: 0.30 + intensity * 0.30,
       blending: THREE.AdditiveBlending,
       depthWrite: false
     });
     const line = new THREE.Line(lineGeo, lineMat);
     scene.add(line);
 
-    // ── 2. GLOW LINE: warm amber outer glow ──
+    // ── 2. GLOW LINE: electric blue outer glow (gold + blue = electric) ──
     const glowMat = new THREE.LineBasicMaterial({
-      color: new THREE.Color(0xff8c00),
+      color: new THREE.Color(0x4a9eff),
       transparent: true,
-      opacity: 0.08 + intensity * 0.12,
+      opacity: 0.06 + intensity * 0.10,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
       linewidth: 1
@@ -452,14 +452,25 @@ export function createConstellations(stats) {
     const glowLine = new THREE.Line(lineGeo.clone(), glowMat);
     scene.add(glowLine);
 
-    // ── 3. NODE GLOW: pulsing orbs at each day ──
+    // ── 3. MEANINGFUL NODES: each dot = a commit day, sized by commits that day ──
     const nodeMats = [];
     for (let ni = 0; ni < points.length; ni++) {
-      const nodeGeo = new THREE.SphereGeometry(0.3 + intensity * 0.3, 8, 8);
+      const dayDate = streak[ni];
+      const dayCommits = dailyCommits[dayDate] || 1;
+      // Size scales with significance: 1 commit = small, 10+ = large
+      const nodeRadius = 0.25 + Math.min(dayCommits / 8, 0.8) + intensity * 0.15;
+      const nodeGeo = new THREE.SphereGeometry(nodeRadius, 10, 10);
+      // Color shifts: low commits = blue-white, high commits = hot gold
+      const commitHeat = Math.min(1, dayCommits / 10);
+      const nodeColor = new THREE.Color().lerpColors(
+        new THREE.Color(0x88bbff),  // cool blue (few commits)
+        new THREE.Color(0xffd700),  // hot gold (many commits)
+        commitHeat
+      );
       const nodeMat = new THREE.MeshBasicMaterial({
-        color: new THREE.Color(0xffd700),
+        color: nodeColor,
         transparent: true,
-        opacity: 0.5,
+        opacity: 0.6 + commitHeat * 0.3,
         blending: THREE.AdditiveBlending,
         depthWrite: false
       });
@@ -483,10 +494,10 @@ export function createConstellations(stats) {
     const pctx = pulseCanvas.getContext('2d');
     const pGrad = pctx.createRadialGradient(32, 32, 0, 32, 32, 32);
     pGrad.addColorStop(0, 'rgba(255, 255, 255, 1.0)');   // white-hot core
-    pGrad.addColorStop(0.1, 'rgba(255, 215, 0, 0.95)');   // pure gold
-    pGrad.addColorStop(0.25, 'rgba(255, 179, 71, 0.7)');  // amber
-    pGrad.addColorStop(0.5, 'rgba(255, 140, 0, 0.3)');    // dark orange
-    pGrad.addColorStop(0.75, 'rgba(255, 100, 0, 0.08)');  // ember
+    pGrad.addColorStop(0.08, 'rgba(180, 220, 255, 0.95)'); // electric blue flash
+    pGrad.addColorStop(0.2, 'rgba(255, 200, 80, 0.7)');   // gold ring
+    pGrad.addColorStop(0.4, 'rgba(255, 170, 50, 0.3)');    // amber
+    pGrad.addColorStop(0.65, 'rgba(74, 158, 255, 0.08)');  // blue ember
     pGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
     pctx.fillStyle = pGrad;
     pctx.fillRect(0, 0, 64, 64);

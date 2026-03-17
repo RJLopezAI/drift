@@ -45,7 +45,7 @@ const updateCallbacks = [];
 export function initScene(canvas) {
   // Scene
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x040410);  // slightly deeper void for contrast
+  scene.background = new THREE.Color(0x020208);  // true deep black void
 
   // Camera — wider FOV for immersive 3D depth
   camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 600);
